@@ -46,7 +46,7 @@ resource "aws_lb_target_group" "laravel" {
     protocol           = "HTTP"
     matcher            = "200"
     timeout            = 5
-    path              = "/ping"  # PHP-FPM ping path
+    path              = "/health"  # PHP-FPM ping path
     unhealthy_threshold = 2
   }
 
