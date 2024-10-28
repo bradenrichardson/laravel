@@ -1,4 +1,3 @@
-# .github/workflows/deploy-app.yaml
 name: Deploy Application
 
 on:
@@ -13,8 +12,6 @@ env:
   ECR_REPOSITORY: laravel-app
   ECS_CLUSTER: laravel-cluster
   ECS_SERVICE: laravel
-  ECS_TASK_DEFINITION: laravel-task-definition
-  CONTAINER_NAME: laravel-app
 
 jobs:
   deploy:
@@ -44,23 +41,13 @@ jobs:
           ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
           ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
 
-    - name: Download task definition
+    - name: Force new deployment
       run: |
-        aws ecs describe-task-definition --task-definition ${{ env.ECS_TASK_DEFINITION }} \
-        --query taskDefinition > task-definition.json
-
-    - name: Update ECS task definition
-      id: task-def
-      uses: aws-actions/amazon-ecs-render-task-definition@v1
-      with:
-        task-definition: task-definition.json
-        container-name: ${{ env.CONTAINER_NAME }}
-        image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
-
-    - name: Deploy to ECS
-      uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-      with:
-        task-definition: ${{ steps.task-def.outputs.task-definition }}
-        service: ${{ env.ECS_SERVICE }}
-        cluster: ${{ env.ECS_CLUSTER }}
-        wait-for-service-stability: true
+        aws ecs update-service --cluster ${{ env.ECS_CLUSTER }} \
+                              --service ${{ env.ECS_SERVICE }} \
+                              --force-new-deployment
+        
+        # Wait for service to be stable
+        aws ecs wait services-stable \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services ${{ env.ECS_SERVICE }}
