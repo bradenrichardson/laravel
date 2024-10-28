@@ -46,7 +46,7 @@ resource "aws_lb_target_group" "laravel" {
     protocol           = "HTTP"  # Internal health check can remain HTTP
     matcher            = "200"
     timeout            = 5
-    path              = "/health"
+    path              = "/"
     unhealthy_threshold = 2
   }
 
