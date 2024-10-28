@@ -100,14 +100,13 @@ module "ecs" {
             }
           ]
 
-          # Health check
           healthcheck = {
-            command     = ["CMD-SHELL", "php artisan health:check || exit 1"]
+            command     = ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
             interval    = 30
             timeout     = 5
             retries     = 3
             startPeriod = 60
-          }
+        }
           
           # CloudWatch logging
           enable_cloudwatch_logging = true
