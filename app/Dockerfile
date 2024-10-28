@@ -28,5 +28,7 @@ COPY . /var/www
 # Install dependencies
 RUN composer install
 
+EXPOSE 8000
+
 # Set permissions
 RUN chown -R www-data:www-data /var/www
