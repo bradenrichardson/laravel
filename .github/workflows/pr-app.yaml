@@ -1,11 +1,8 @@
 # .github/workflows/app-ci.yaml
-name: Application CI
+name: Laravel Pull Request Checks
 
 on:
-  push:
-    branches:
-      - 'develop'
-      - 'main'
+  pull_request:
     paths:
       - 'app/**'
 

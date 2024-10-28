@@ -38,17 +38,6 @@ graph TD
     end
 ```
 
-### Security Group Flow
-
-```mermaid
-flowchart LR
-    APIGW[API Gateway] --> |80| SG1[VPC Link SG]
-    SG1 --> |80| SG2[ALB SG]
-    SG2 --> |8000| SG3[ECS Tasks SG]
-    SG3 --> |80,443| Internet((Internet))
-    SG3 --> |All| VPC((VPC Internal))
-```
-
 ## Key Features
 
 - **High Availability**: Deployed across 3 AZs with auto-scaling capabilities
