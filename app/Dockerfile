@@ -32,20 +32,37 @@ WORKDIR /var/www
 # Copy application files
 COPY . .
 
-# Create .env file from .env.example if .env doesn't exist
-RUN if [ ! -f ".env" ]; then cp .env.example .env; fi
+# Basic environment variables
+ENV APP_ENV=production
+ENV APP_DEBUG=false
+ENV LOG_CHANNEL=stderr
 
-# Install dependencies
-RUN composer install --no-interaction --optimize-autoloader --no-dev
+# Create minimal .env file
+RUN echo "APP_NAME=Laravel\n\
+APP_ENV=production\n\
+APP_KEY=\n\
+APP_DEBUG=false\n\
+APP_URL=http://localhost\n\
+LOG_CHANNEL=stderr\n\
+CACHE_DRIVER=array\n\
+SESSION_DRIVER=array\n\
+QUEUE_CONNECTION=sync\n\
+" > .env
 
-# Generate application key if not set
-RUN php artisan key:generate --force
+# Install dependencies and optimize
+RUN composer install --no-interaction --optimize-autoloader --no-dev \
+    && php artisan key:generate --force \
+    && php artisan config:cache \
+    && php artisan route:cache \
+    && php artisan view:cache
 
 # Set permissions
 RUN chown -R www-data:www-data /var/www \
     && chmod -R 755 /var/www/storage /var/www/bootstrap/cache
 
+# Switch to non-root user
+USER www-data
+
 EXPOSE 8000
 
-# Start PHP's built-in server
 CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]

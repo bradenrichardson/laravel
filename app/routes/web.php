@@ -6,10 +6,11 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-// Remove any previous health check routes and add this simple one
+
+// Simple health check route with no extra processing
 Route::get('/health', function() {
     return response()->json([
         'status' => 'healthy',
         'timestamp' => now()->toISOString()
     ]);
-});
+})->middleware([]);
