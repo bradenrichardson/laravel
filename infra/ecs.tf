@@ -82,7 +82,7 @@ module "ecs" {
       container_definitions = {
         laravel-app = {
           name      = "${var.app_name}-container"
-          image     = "${var.app_name}:latest"
+          image     = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.aws_region}.amazonaws.com/${var.app_name}:latest"
           essential = true
           
           # Resource allocation
@@ -159,19 +159,6 @@ module "ecs" {
         }
       }
 
-      # Service registry
-      service_connect_configuration = {
-        enabled = true
-        namespace = aws_service_discovery_private_dns_namespace.this.name
-        service = {
-          client_alias = {
-            port     = 8000
-            dns_name = var.app_name
-          }
-          port_name      = "${var.app_name}-port"
-          discovery_name = var.app_name
-        }
-      }
 
       # Autoscaling configuration
       enable_autoscaling = true
@@ -216,19 +203,6 @@ resource "aws_cloudwatch_log_group" "ecs" {
   name              = "/aws/ecs/${var.app_name}"
   retention_in_days = 30
   
-  tags = {
-    Environment = var.environment
-    Terraform   = "true"
-    Application = var.app_name
-  }
-}
-
-# Service Discovery Namespace
-resource "aws_service_discovery_private_dns_namespace" "this" {
-  name        = "${var.app_name}.local"
-  description = "Service discovery namespace for ${var.app_name}"
-  vpc         = module.vpc.vpc_id
-
   tags = {
     Environment = var.environment
     Terraform   = "true"
@@ -283,6 +257,36 @@ resource "aws_cloudwatch_metric_alarm" "service_memory_high" {
     Terraform   = "true"
     Application = var.app_name
   }
+}
+
+data "aws_caller_identity" "current" {}
+
+# Add IAM policy to allow ECS to pull from ECR
+resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy_ecr" {
+  role       = module.ecs.task_exec_iam_role_name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
+# Add ECR permissions to task execution role
+resource "aws_iam_role_policy" "ecs_task_execution_ecr" {
+  name = "${var.app_name}-ecr-policy"
+  role = module.ecs.task_exec_iam_role_name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:GetAuthorizationToken",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
 }
 
 # Outputs

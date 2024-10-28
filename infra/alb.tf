@@ -56,3 +56,38 @@ resource "aws_lb_target_group" "laravel" {
     Terraform   = "true"
   }
 }
+
+# Get the hosted zone data
+data "aws_route53_zone" "selected" {
+  name = "margaretriver.rentals"
+}
+
+# Create Route53 record
+resource "aws_route53_record" "app" {
+  zone_id = data.aws_route53_zone.selected.zone_id
+  name    = "margaretriver.rentals"  # or use "api.margaretriver.rentals" if you want a subdomain
+  type    = "A"
+
+  alias {
+    name                   = aws_lb.laravel.dns_name  # Assuming your ALB resource is named 'main'
+    zone_id                = aws_lb.laravel.zone_id
+    evaluate_target_health = true
+  }
+}
+
+# Optional: Add HTTP to HTTPS redirect
+resource "aws_lb_listener" "http" {
+  load_balancer_arn = aws_lb.laravel.arn
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type = "redirect"
+
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
+  }
+}
