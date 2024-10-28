@@ -1,0 +1,107 @@
+# .github/workflows/app-ci.yaml
+name: Application CI
+
+on:
+  push:
+    branches:
+      - 'develop'
+      - 'main'
+    paths:
+      - 'app/**'
+
+jobs:
+  lint:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+
+      - name: Get composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install Dependencies
+        working-directory: ./app
+        run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
+
+      - name: Run PHP CS Fixer
+        working-directory: ./app
+        run: ./vendor/bin/php-cs-fixer fix --dry-run --diff
+
+      - name: Run PHP Stan
+        working-directory: ./app
+        run: ./vendor/bin/phpstan analyse
+
+  test:
+    name: Unit & Feature Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+
+      - name: Install Dependencies
+        working-directory: ./app
+        run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
+
+      - name: Copy .env
+        working-directory: ./app
+        run: cp .env.example .env
+
+      - name: Generate key
+        working-directory: ./app
+        run: php artisan key:generate
+
+      - name: Run Tests
+        working-directory: ./app
+        run: php artisan test
+
+  docker-build:
+    name: Docker Build Test
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./app
+          push: false
+          load: true
+          tags: app:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'app:test'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
