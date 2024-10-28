@@ -10,8 +10,8 @@ on:
 env:
   AWS_REGION: ap-southeast-2
   ECR_REPOSITORY: laravel-app
-  ECS_CLUSTER: laravel-cluster
-  ECS_SERVICE: laravel
+  ECS_CLUSTER: laravel-app-cluster
+  ECS_SERVICE: laravel-app-service
 
 jobs:
   deploy:

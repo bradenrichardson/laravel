@@ -31,3 +31,10 @@ Or
 
 1. Push to the `main` branch with changes to /app
 
+
+## DNS
+For the domain resolution to work, you will need to :
+1. Create a public hosted zone in Route53 for `margaretriver.rentals`
+2. Create a certificate in ACM for `margaretriver.rentals`
+3. Verify the ownership of the domain in ACM
+
