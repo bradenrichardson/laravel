@@ -23,7 +23,24 @@ module "vpc" {
   create_flow_log_cloudwatch_log_group = true
   create_flow_log_cloudwatch_iam_role  = true
   flow_log_max_aggregation_interval    = 60
+  flow_log_log_format                  = "$${version} $${account-id} $${interface-id} $${srcaddr} $${dstaddr} $${srcport} $${dstport} $${protocol} $${packets} $${bytes} $${start} $${end} $${action} $${log-status}"
+  
+  # Additional VPC flow log settings
+  flow_log_destination_type = "cloud-watch-logs"
+  flow_log_traffic_type    = "REJECT"
+  flow_log_destination_arn = aws_cloudwatch_log_group.vpc_flow_logs.arn
 
+  tags = {
+    Environment = var.environment
+    Terraform   = "true"
+    Application = var.app_name
+  }
+}
+
+resource "aws_cloudwatch_log_group" "vpc_flow_logs" {
+  name              = "/aws/vpc/flow-logs/${var.app_name}"
+  retention_in_days = 30
+  
   tags = {
     Environment = var.environment
     Terraform   = "true"

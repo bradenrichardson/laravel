@@ -1,9 +1,11 @@
+# ecs.tf
 module "ecs" {
   source  = "terraform-aws-modules/ecs/aws"
   version = "5.11.4"
 
   cluster_name = "${var.app_name}-cluster"
 
+  # Cluster settings
   cluster_configuration = {
     execute_command_configuration = {
       logging = "OVERRIDE"
@@ -13,6 +15,13 @@ module "ecs" {
     }
   }
 
+  # CloudWatch Container Insights
+  cluster_settings = [{
+    name  = "containerInsights"
+    value = "enabled"
+  }]
+
+  # Fargate Capacity Providers
   fargate_capacity_providers = {
     FARGATE = {
       default_capacity_provider_strategy = {
@@ -31,6 +40,23 @@ module "ecs" {
   create_task_exec_iam_role = true
   create_task_exec_policy  = true
 
+  # Task execution IAM role policies
+  task_exec_iam_role_policies = {
+    AWSXRayDaemonWriteAccess = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
+  }
+
+  # Additional task execution IAM statements for CloudWatch
+  task_exec_iam_statements = {
+    cloudwatch_logs = {
+      effect = "Allow"
+      actions = [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ]
+      resources = ["${aws_cloudwatch_log_group.ecs.arn}:*"]
+    }
+  }
+
   services = {
     laravel-app = {
       name = "${var.app_name}-service"
@@ -38,23 +64,33 @@ module "ecs" {
       # Task Definition
       cpu    = 256
       memory = 512
-
+      
       # Deployment configuration
       deployment_minimum_healthy_percent = 50
       deployment_maximum_percent = 200
+      deployment_circuit_breaker = {
+        enable   = true
+        rollback = true
+      }
 
       # Network Configuration
       subnet_ids = module.vpc.private_subnets
+      security_group_ids = [aws_security_group.ecs_tasks.id]
       network_mode = "awsvpc"
 
       # Container Definitions
       container_definitions = {
         laravel-app = {
           name      = "${var.app_name}-container"
+          image     = "${var.app_name}:latest"
+          essential = true
+          
+          # Resource allocation
           cpu       = 256
           memory    = 512
-          essential = true
-          image     = "${var.app_name}:latest"
+          memory_reservation = 256
+
+          # Port mappings
           port_mappings = [
             {
               name          = "${var.app_name}-port"
@@ -63,19 +99,58 @@ module "ecs" {
               hostPort      = 8000
             }
           ]
+
+          # Health check
+          healthcheck = {
+            command     = ["CMD-SHELL", "php artisan health:check || exit 1"]
+            interval    = 30
+            timeout     = 5
+            retries     = 3
+            startPeriod = 60
+          }
           
+          # CloudWatch logging
           enable_cloudwatch_logging = true
           log_configuration = {
             logDriver = "awslogs"
             options = {
-              awslogs-group         = "/aws/ecs/${var.app_name}"
+              awslogs-group         = aws_cloudwatch_log_group.ecs.name
               awslogs-region        = var.aws_region
               awslogs-stream-prefix = "ecs"
             }
           }
+
+          # Environment configuration
+          environment = [
+            {
+              name  = "APP_ENV"
+              value = var.environment
+            },
+            {
+              name  = "APP_DEBUG"
+              value = "false"
+            }
+          ]
+
+          # Mount points for persistent storage if needed
+          mount_points = []
+
+          # Linux parameters
+          linux_parameters = {
+            capabilities = {
+              drop = ["ALL"]
+            }
+            shared_memory_size = 64
+          }
+
+          # Security configuration
+          readonly_root_filesystem = true
+          privileged              = false
+          user                    = "1000:1000"
         }
       }
 
+      # Load Balancer Integration
       load_balancer = {
         service = {
           target_group_arn = aws_lb_target_group.laravel.arn
@@ -84,21 +159,44 @@ module "ecs" {
         }
       }
 
-      security_group_rules = {
-        ingress_alb = {
-          type                     = "ingress"
-          from_port               = 8000
-          to_port                 = 8000
-          protocol                = "tcp"
-          source_security_group_id = aws_security_group.alb.id
-          description             = "Allow incoming traffic from ALB"
+      # Service registry
+      service_connect_configuration = {
+        enabled = true
+        namespace = aws_service_discovery_private_dns_namespace.this.name
+        service = {
+          client_alias = {
+            port     = 8000
+            dns_name = var.app_name
+          }
+          port_name      = "${var.app_name}-port"
+          discovery_name = var.app_name
         }
-        egress_all = {
-          type        = "egress"
-          from_port   = 0
-          to_port     = 0
-          protocol    = "-1"
-          cidr_blocks = ["0.0.0.0/0"]
+      }
+
+      # Autoscaling configuration
+      enable_autoscaling = true
+      autoscaling_min_capacity = 2
+      autoscaling_max_capacity = 4
+
+      # Autoscaling policies
+      autoscaling_policies = {
+        cpu = {
+          policy_type = "TargetTrackingScaling"
+          target_tracking_scaling_policy_configuration = {
+            predefined_metric_specification = {
+              predefined_metric_type = "ECSServiceAverageCPUUtilization"
+            }
+            target_value = 70.0
+          }
+        }
+        memory = {
+          policy_type = "TargetTrackingScaling"
+          target_tracking_scaling_policy_configuration = {
+            predefined_metric_specification = {
+              predefined_metric_type = "ECSServiceAverageMemoryUtilization"
+            }
+            target_value = 80.0
+          }
         }
       }
 
@@ -111,4 +209,94 @@ module "ecs" {
     Terraform   = "true"
     Application = var.app_name
   }
+}
+
+# CloudWatch Log Group for ECS
+resource "aws_cloudwatch_log_group" "ecs" {
+  name              = "/aws/ecs/${var.app_name}"
+  retention_in_days = 30
+  
+  tags = {
+    Environment = var.environment
+    Terraform   = "true"
+    Application = var.app_name
+  }
+}
+
+# Service Discovery Namespace
+resource "aws_service_discovery_private_dns_namespace" "this" {
+  name        = "${var.app_name}.local"
+  description = "Service discovery namespace for ${var.app_name}"
+  vpc         = module.vpc.vpc_id
+
+  tags = {
+    Environment = var.environment
+    Terraform   = "true"
+    Application = var.app_name
+  }
+}
+
+# CloudWatch Alarms
+resource "aws_cloudwatch_metric_alarm" "service_cpu_high" {
+  alarm_name          = "${var.app_name}-cpu-utilization-high"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "2"
+  metric_name        = "CPUUtilization"
+  namespace          = "AWS/ECS"
+  period             = "300"
+  statistic          = "Average"
+  threshold          = "85"
+  alarm_description  = "CPU utilization has exceeded 85%"
+  alarm_actions      = []  # Add SNS topic ARN if needed
+
+  dimensions = {
+    ClusterName = module.ecs.cluster_name
+    ServiceName = "${var.app_name}-service"
+  }
+
+  tags = {
+    Environment = var.environment
+    Terraform   = "true"
+    Application = var.app_name
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "service_memory_high" {
+  alarm_name          = "${var.app_name}-memory-utilization-high"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "2"
+  metric_name        = "MemoryUtilization"
+  namespace          = "AWS/ECS"
+  period             = "300"
+  statistic          = "Average"
+  threshold          = "85"
+  alarm_description  = "Memory utilization has exceeded 85%"
+  alarm_actions      = []  # Add SNS topic ARN if needed
+
+  dimensions = {
+    ClusterName = module.ecs.cluster_name
+    ServiceName = "${var.app_name}-service"
+  }
+
+  tags = {
+    Environment = var.environment
+    Terraform   = "true"
+    Application = var.app_name
+  }
+}
+
+# Outputs
+output "ecs_cluster_id" {
+  description = "The ID of the ECS cluster"
+  value       = module.ecs.cluster_id
+}
+
+output "ecs_service_name" {
+  description = "The name of the ECS service"
+  value       = "${var.app_name}-service"
+}
+
+output "cloudwatch_log_group_name" {
+  description = "The name of the CloudWatch log group"
+  value       = aws_cloudwatch_log_group.ecs.name
 }

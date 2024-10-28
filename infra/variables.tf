@@ -1,7 +1,7 @@
 variable "aws_region" {
   description = "AWS region"
   type        = string
-  default     = "us-west-2"
+  default     = "ap-southeast-2"
 }
 
 variable "app_name" {
@@ -24,4 +24,10 @@ variable "environment" {
     condition     = can(regex("^[a-zA-Z0-9-_]+$", var.environment))
     error_message = "The environment must consist of alphanumerics, hyphens, and underscores only."
   }
+}
+
+variable "acm_certificate_arn" {
+  description = "ACM certificate ARN"
+  type        = string
+  default     = "arn:aws:acm:ap-southeast-2:007576465237:certificate/eb10ff23-d9cc-4a0a-9ca6-138e3de028f0"
 }

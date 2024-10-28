@@ -8,6 +8,19 @@ module "api_gateway" {
 
   create_api_domain_name = false
 
+  # Enable access logging
+  default_stage_access_log_destination_arn = aws_cloudwatch_log_group.api_gateway.arn
+  default_stage_access_log_format = jsonencode({
+    requestId      = "$context.requestId"
+    ip            = "$context.identity.sourceIp"
+    requestTime    = "$context.requestTime"
+    httpMethod     = "$context.httpMethod"
+    routeKey       = "$context.routeKey"
+    status         = "$context.status"
+    protocol       = "$context.protocol"
+    responseLength = "$context.responseLength"
+  })
+
   vpc_links = {
     laravel = {
       name               = "${var.app_name}-vpc-link"
@@ -36,6 +49,17 @@ module "api_gateway" {
     }
   }
 
+  tags = {
+    Environment = var.environment
+    Terraform   = "true"
+    Application = var.app_name
+  }
+}
+
+resource "aws_cloudwatch_log_group" "api_gateway" {
+  name              = "/aws/api-gateway/${var.app_name}"
+  retention_in_days = 30
+  
   tags = {
     Environment = var.environment
     Terraform   = "true"
