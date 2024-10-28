@@ -15,10 +15,8 @@ resource "aws_lb" "laravel" {
 
 resource "aws_lb_listener" "laravel" {
   load_balancer_arn = aws_lb.laravel.arn
-  port              = 443
-  protocol          = "HTTPS"
-  ssl_policy        = "ELBSecurityPolicy-TLS-1-2-2017-01"
-  certificate_arn   = var.acm_certificate_arn
+  port              = 80
+  protocol          = "HTTP"
 
   default_action {
     type             = "forward"
@@ -53,21 +51,5 @@ resource "aws_lb_target_group" "laravel" {
     Name        = "${var.app_name}-tg"
     Environment = var.environment
     Terraform   = "true"
-  }
-}
-
-resource "aws_lb_listener" "http" {
-  load_balancer_arn = aws_lb.laravel.arn
-  port              = "80"
-  protocol          = "HTTP"
-
-  default_action {
-    type = "redirect"
-
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
-    }
   }
 }
