@@ -43,10 +43,10 @@ resource "aws_lb_target_group" "laravel" {
   health_check {
     healthy_threshold   = 2
     interval           = 30
-    protocol           = "HTTP"  # Internal health check can remain HTTP
+    protocol           = "HTTP"
     matcher            = "200"
     timeout            = 5
-    path              = "/"
+    path              = "/ping"  # PHP-FPM ping path
     unhealthy_threshold = 2
   }
 

@@ -1,34 +1,58 @@
 FROM php:8.2-fpm
 
-# Install dependencies
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     git \
     curl \
     libpng-dev \
     libonig-dev \
     libxml2-dev \
+    libzip-dev \
+    libicu-dev \
     zip \
-    unzip
-
-# Clear cache
-RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+    unzip \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install PHP extensions
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
+RUN docker-php-ext-install \
+    pdo_mysql \
+    mbstring \
+    exif \
+    pcntl \
+    bcmath \
+    gd \
+    zip \
+    intl \
+    opcache
 
-# Get Composer
+# Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 # Set working directory
 WORKDIR /var/www
 
+# Copy composer files first to leverage Docker cache
+COPY composer.json composer.lock ./
+
+# Install composer dependencies
+RUN composer install --no-scripts --no-autoloader --no-dev
+
 # Copy application files
-COPY . /var/www
+COPY . .
 
-# Install dependencies
-RUN composer install
-
-EXPOSE 8000
+# Generate optimized autoload files
+RUN composer dump-autoload --optimize
 
 # Set permissions
-RUN chown -R www-data:www-data /var/www
+RUN chown -R www-data:www-data /var/www \
+    && chmod -R 755 /var/www/storage /var/www/bootstrap/cache
+
+# Configure PHP-FPM to listen on port 8000
+COPY docker/php/php-fpm.d/zz-docker.conf /usr/local/etc/php-fpm.d/zz-docker.conf
+
+# Expose port 8000
+EXPOSE 8000
+
+# Start PHP-FPM
+CMD ["php-fpm"]
