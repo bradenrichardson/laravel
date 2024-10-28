@@ -4,7 +4,7 @@ resource "aws_lb" "laravel" {
   load_balancer_type        = "application"
   security_groups           = [aws_security_group.alb.id]
   subnets                   = module.vpc.private_subnets
-  drop_invalid_header_fields = true # Added to drop invalid headers
+  drop_invalid_header_fields = true
 
   tags = {
     Name        = "${var.app_name}-alb"
@@ -12,7 +12,6 @@ resource "aws_lb" "laravel" {
     Terraform   = "true"
   }
 }
-
 
 resource "aws_lb_listener" "laravel" {
   load_balancer_arn = aws_lb.laravel.arn
@@ -36,7 +35,7 @@ resource "aws_lb_listener" "laravel" {
 resource "aws_lb_target_group" "laravel" {
   name        = "${var.app_name}-tg"
   port        = 8000
-  protocol    = "HTTP"  # Keep this as HTTP since internal communication is secured
+  protocol    = "HTTP"
   vpc_id      = module.vpc.vpc_id
   target_type = "ip"
 
@@ -46,7 +45,7 @@ resource "aws_lb_target_group" "laravel" {
     protocol           = "HTTP"
     matcher            = "200"
     timeout            = 5
-    path              = "/health"  # PHP-FPM ping path
+    path              = "/health"
     unhealthy_threshold = 2
   }
 
@@ -57,25 +56,6 @@ resource "aws_lb_target_group" "laravel" {
   }
 }
 
-# Get the hosted zone data
-data "aws_route53_zone" "selected" {
-  name = "margaretriver.rentals"
-}
-
-# Create Route53 record
-resource "aws_route53_record" "app" {
-  zone_id = data.aws_route53_zone.selected.zone_id
-  name    = "margaretriver.rentals"  # or use "api.margaretriver.rentals" if you want a subdomain
-  type    = "A"
-
-  alias {
-    name                   = aws_lb.laravel.dns_name  # Assuming your ALB resource is named 'main'
-    zone_id                = aws_lb.laravel.zone_id
-    evaluate_target_health = true
-  }
-}
-
-# Optional: Add HTTP to HTTPS redirect
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.laravel.arn
   port              = "80"
