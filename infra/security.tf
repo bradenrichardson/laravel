@@ -5,7 +5,7 @@ resource "aws_security_group" "vpc_link" {
 
   # Restrict ingress to only the VPC CIDR
   ingress {
-    from_port   = 80  # Changed to HTTP port
+    from_port   = 80 # Changed to HTTP port
     to_port     = 80
     protocol    = "tcp"
     cidr_blocks = [module.vpc.vpc_cidr_block]
@@ -14,7 +14,7 @@ resource "aws_security_group" "vpc_link" {
 
   # Restrict egress to only necessary services
   egress {
-    from_port   = 80  # Changed to HTTP port
+    from_port   = 80 # Changed to HTTP port
     to_port     = 80
     protocol    = "tcp"
     cidr_blocks = [module.vpc.vpc_cidr_block]
@@ -34,7 +34,7 @@ resource "aws_security_group" "alb" {
   vpc_id      = module.vpc.vpc_id
 
   ingress {
-    from_port       = 80  # Confirm HTTP port
+    from_port       = 80 # Confirm HTTP port
     to_port         = 80
     protocol        = "tcp"
     security_groups = [aws_security_group.vpc_link.id]
@@ -42,11 +42,11 @@ resource "aws_security_group" "alb" {
   }
 
   egress {
-    from_port       = 8000
-    to_port         = 8000
-    protocol        = "tcp"
-    cidr_blocks     = [module.vpc.vpc_cidr_block]
-    description     = "Allow outbound traffic to ECS tasks"
+    from_port   = 8000
+    to_port     = 8000
+    protocol    = "tcp"
+    cidr_blocks = [module.vpc.vpc_cidr_block]
+    description = "Allow outbound traffic to ECS tasks"
   }
 
   tags = {

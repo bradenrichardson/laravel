@@ -1,9 +1,9 @@
 resource "aws_lb" "laravel" {
   name                       = "${var.app_name}-alb"
   internal                   = true
-  load_balancer_type        = "application"
-  security_groups           = [aws_security_group.alb.id]
-  subnets                   = module.vpc.private_subnets
+  load_balancer_type         = "application"
+  security_groups            = [aws_security_group.alb.id]
+  subnets                    = module.vpc.private_subnets
   drop_invalid_header_fields = true
 
   tags = {
@@ -39,11 +39,11 @@ resource "aws_lb_target_group" "laravel" {
 
   health_check {
     healthy_threshold   = 2
-    interval           = 30
-    protocol           = "HTTP"
-    matcher            = "200"
-    timeout            = 5
-    path              = "/health"
+    interval            = 30
+    protocol            = "HTTP"
+    matcher             = "200"
+    timeout             = 5
+    path                = "/health"
     unhealthy_threshold = 2
   }
 

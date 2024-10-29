@@ -133,8 +133,6 @@ An S3 bucket and DynamoDB table are used to store the remote state of the terraf
 2. terraform init
 3. terraform apply
 
-## Configure Github Actions
-1. Create a new repository secret with the name `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
 
 ## Deploy Infra
 Infrastructure is provisioned using terraform. The code is located in the `infra` folder. To provision the infra, run the following commands or the deploy-infra.yaml workflow will be triggered on push to the `main` branch.
@@ -164,6 +162,141 @@ For the domain resolution to work, you will need to :
 1. Create a public hosted zone in Route53 for `margaretriver.rentals`
 2. Create a certificate in ACM for `margaretriver.rentals`
 3. Verify the ownership of the domain in ACM
+
+# GitHub Actions Workflows Overview
+
+This repository implements a comprehensive CI/CD pipeline using GitHub Actions, with separate workflows for infrastructure and application deployments.
+
+## Workflow Architecture
+
+```mermaid
+graph TD
+    subgraph "Pull Request Workflows"
+        PR[Pull Request] --> |infra/**| TCP[Terraform Checks]
+        PR --> |app/**| ACP[Application Checks]
+        
+        TCP --> |Run| SC[Security Scan]
+        TCP --> |Run| TP[Terraform Plan]
+        TCP --> |Run| IC[Infracost Analysis]
+        
+        ACP --> |Run| DB[Docker Build]
+        DB --> |Run| VS[Vulnerability Scan]
+    end
+    
+    subgraph "Deployment Workflows"
+        MR[Merge to Main] --> |infra/**| TF[Deploy Infrastructure]
+        MR --> |app/**| AD[Deploy Application]
+        
+        TF --> |1| INIT[Terraform Init]
+        INIT --> |2| PLAN[Terraform Plan]
+        PLAN --> |3| APPLY[Terraform Apply]
+        
+        AD --> |1| ECR[ECR Login]
+        ECR --> |2| BUILD[Build & Push Image]
+        BUILD --> |3| DEPLOY[Deploy to ECS]
+    end
+```
+
+## Workflow Descriptions
+
+### 1. Application Deployment (`deploy.yaml`)
+Triggers on pushes to `main` branch affecting `app/**` paths.
+
+```mermaid
+sequenceDiagram
+    participant GH as GitHub
+    participant ECR as AWS ECR
+    participant ECS as AWS ECS
+    
+    GH->>GH: Checkout Code
+    GH->>ECR: Login to ECR
+    GH->>ECR: Build & Push Image
+    Note over GH,ECR: Tags: latest & commit SHA
+    GH->>ECS: Force New Deployment
+    GH->>ECS: Wait for Stability
+```
+
+### 2. Infrastructure Deployment (`deploy-infra.yaml`)
+Triggers on pushes to `main` branch affecting `infra/**` paths.
+
+```mermaid
+sequenceDiagram
+    participant GH as GitHub
+    participant TF as Terraform
+    participant AWS as AWS Services
+    
+    GH->>GH: Checkout Code
+    GH->>TF: Setup Terraform
+    GH->>AWS: Configure Credentials
+    GH->>TF: Initialize
+    GH->>TF: Plan
+    GH->>TF: Apply
+```
+
+### 3. Application CI (`app-ci.yaml`)
+Runs on pull requests affecting `app/**` paths.
+
+```mermaid
+flowchart LR
+    A[Pull Request] --> B[Docker Build]
+    B --> C[Trivy Scan]
+    C --> D[Upload Results]
+```
+
+### 4. Infrastructure CI (`infra-ci.yaml`)
+Runs on pull requests affecting `infra/**` paths.
+
+```mermaid
+flowchart TB
+    PR[Pull Request] --> Security & Planning
+    
+    subgraph "Security & Planning"
+        direction TB
+        A[Checkov Security Scan] --> B[Upload SARIF]
+        C[Terraform Init] --> D[Format Check]
+        D --> E[Plan]
+        F[Infracost Analysis] --> G[Post PR Comment]
+    end
+```
+
+## Key Features
+
+### Security
+- Vulnerability scanning with Trivy
+- Infrastructure security scanning with Checkov
+- SARIF results uploaded to GitHub Security
+- Infrastructure cost analysis with Infracost
+
+### Quality Assurance
+- Docker build verification
+- Terraform format checking
+- Terraform plan verification
+- Cost impact analysis
+
+### Deployment Safety
+- Path-based triggering
+- ECS deployment stability checking
+- Terraform plan review before apply
+
+## Required Secrets
+
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+- `INFRACOST_API_KEY`
+
+## Workflow Dependencies
+
+### Application Workflows
+- Docker Build Kit
+- AWS CLI
+- Trivy Scanner
+
+### Infrastructure Workflows
+- Terraform v1.6.0
+- Checkov
+- Infracost
+- AWS CLI
+
 
 
 

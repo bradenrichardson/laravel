@@ -1,10 +1,10 @@
 # ECR Repository
 resource "aws_ecr_repository" "app" {
   name                 = "laravel-app"
-  image_tag_mutability = "MUTABLE"  # Allow tag overwriting
+  image_tag_mutability = "MUTABLE" # Allow tag overwriting
 
   image_scanning_configuration {
-    scan_on_push = true  # Enable security scanning
+    scan_on_push = true # Enable security scanning
   }
 
   # Optional: Enable encryption

@@ -24,22 +24,22 @@ module "api_gateway" {
   description   = "HTTP API Gateway for Laravel application"
   protocol_type = "HTTP"
 
-  create_api_domain_name = true
-  domain_name           = "margaretriver.rentals"
+  create_api_domain_name      = true
+  domain_name                 = "margaretriver.rentals"
   domain_name_certificate_arn = var.acm_certificate_arn
 
   # Enable access logging
   default_stage_access_log_destination_arn = aws_cloudwatch_log_group.api_gateway.arn
   default_stage_access_log_format = jsonencode({
-    requestId      = "$context.requestId"
-    ip            = "$context.identity.sourceIp"
-    requestTime    = "$context.requestTime"
-    httpMethod     = "$context.httpMethod"
-    routeKey       = "$context.routeKey"
-    status         = "$context.status"
-    protocol       = "$context.protocol"
-    responseLength = "$context.responseLength"
-    error         = "$context.error.message"
+    requestId        = "$context.requestId"
+    ip               = "$context.identity.sourceIp"
+    requestTime      = "$context.requestTime"
+    httpMethod       = "$context.httpMethod"
+    routeKey         = "$context.routeKey"
+    status           = "$context.status"
+    protocol         = "$context.protocol"
+    responseLength   = "$context.responseLength"
+    error            = "$context.error.message"
     integrationError = "$context.integration.error"
   })
 
@@ -53,26 +53,26 @@ module "api_gateway" {
 
   integrations = {
     "ANY /{proxy+}" = {
-      connection_type    = "VPC_LINK"
-      vpc_link          = "laravel"
-      integration_type  = "HTTP_PROXY"
-      integration_method = "ANY"
-      integration_uri   = aws_lb_listener.laravel.arn
+      connection_type        = "VPC_LINK"
+      vpc_link               = "laravel"
+      integration_type       = "HTTP_PROXY"
+      integration_method     = "ANY"
+      integration_uri        = aws_lb_listener.laravel.arn
       payload_format_version = "1.0"
-      timeout_milliseconds = 29000
+      timeout_milliseconds   = 29000
       request_parameters = {
         "overwrite:path" = "$request.path"
       }
     }
 
     "ANY /" = {
-      connection_type    = "VPC_LINK"
-      vpc_link          = "laravel"
-      integration_type  = "HTTP_PROXY"
-      integration_method = "ANY"
-      integration_uri   = aws_lb_listener.laravel.arn
+      connection_type        = "VPC_LINK"
+      vpc_link               = "laravel"
+      integration_type       = "HTTP_PROXY"
+      integration_method     = "ANY"
+      integration_uri        = aws_lb_listener.laravel.arn
       payload_format_version = "1.0"
-      timeout_milliseconds = 29000
+      timeout_milliseconds   = 29000
       request_parameters = {
         "overwrite:path" = "/"
       }
@@ -89,7 +89,7 @@ module "api_gateway" {
 resource "aws_cloudwatch_log_group" "api_gateway" {
   name              = "/aws/api-gateway/${var.app_name}"
   retention_in_days = 30
-  
+
   tags = {
     Environment = var.environment
     Terraform   = "true"

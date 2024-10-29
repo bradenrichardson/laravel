@@ -38,7 +38,7 @@ module "ecs" {
 
   # Task execution IAM role
   create_task_exec_iam_role = true
-  create_task_exec_policy  = true
+  create_task_exec_policy   = true
 
   # Task execution IAM role policies
   task_exec_iam_role_policies = {
@@ -60,23 +60,23 @@ module "ecs" {
   services = {
     laravel-app = {
       name = "${var.app_name}-service"
-      
+
       # Task Definition
       cpu    = 256
       memory = 512
-      
+
       # Deployment configuration
       deployment_minimum_healthy_percent = 50
-      deployment_maximum_percent = 200
+      deployment_maximum_percent         = 200
       deployment_circuit_breaker = {
         enable   = true
         rollback = true
       }
 
       # Network Configuration
-      subnet_ids = module.vpc.private_subnets
+      subnet_ids         = module.vpc.private_subnets
       security_group_ids = [aws_security_group.ecs_tasks.id]
-      network_mode = "awsvpc"
+      network_mode       = "awsvpc"
 
       # Container Definitions
       container_definitions = {
@@ -84,10 +84,10 @@ module "ecs" {
           name      = "${var.app_name}-container"
           image     = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.aws_region}.amazonaws.com/${var.app_name}:latest"
           essential = true
-          
+
           # Resource allocation
-          cpu       = 256
-          memory    = 512
+          cpu                = 256
+          memory             = 512
           memory_reservation = 256
 
           # Port mappings
@@ -106,8 +106,8 @@ module "ecs" {
             timeout     = 5
             retries     = 3
             startPeriod = 60
-        }
-          
+          }
+
           # CloudWatch logging
           enable_cloudwatch_logging = true
           log_configuration = {
@@ -144,8 +144,8 @@ module "ecs" {
 
           # Security configuration
           readonly_root_filesystem = true
-          privileged              = false
-          user                    = "1000:1000"
+          privileged               = false
+          user                     = "1000:1000"
         }
       }
 
@@ -160,7 +160,7 @@ module "ecs" {
 
 
       # Autoscaling configuration
-      enable_autoscaling = true
+      enable_autoscaling       = true
       autoscaling_min_capacity = 2
       autoscaling_max_capacity = 4
 
@@ -201,7 +201,7 @@ module "ecs" {
 resource "aws_cloudwatch_log_group" "ecs" {
   name              = "/aws/ecs/${var.app_name}"
   retention_in_days = 30
-  
+
   tags = {
     Environment = var.environment
     Terraform   = "true"
@@ -214,13 +214,13 @@ resource "aws_cloudwatch_metric_alarm" "service_cpu_high" {
   alarm_name          = "${var.app_name}-cpu-utilization-high"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = "2"
-  metric_name        = "CPUUtilization"
-  namespace          = "AWS/ECS"
-  period             = "300"
-  statistic          = "Average"
-  threshold          = "85"
-  alarm_description  = "CPU utilization has exceeded 85%"
-  alarm_actions      = []  # Add SNS topic ARN if needed
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/ECS"
+  period              = "300"
+  statistic           = "Average"
+  threshold           = "85"
+  alarm_description   = "CPU utilization has exceeded 85%"
+  alarm_actions       = [] # Add SNS topic ARN if needed
 
   dimensions = {
     ClusterName = module.ecs.cluster_name
@@ -238,13 +238,13 @@ resource "aws_cloudwatch_metric_alarm" "service_memory_high" {
   alarm_name          = "${var.app_name}-memory-utilization-high"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = "2"
-  metric_name        = "MemoryUtilization"
-  namespace          = "AWS/ECS"
-  period             = "300"
-  statistic          = "Average"
-  threshold          = "85"
-  alarm_description  = "Memory utilization has exceeded 85%"
-  alarm_actions      = []  # Add SNS topic ARN if needed
+  metric_name         = "MemoryUtilization"
+  namespace           = "AWS/ECS"
+  period              = "300"
+  statistic           = "Average"
+  threshold           = "85"
+  alarm_description   = "Memory utilization has exceeded 85%"
+  alarm_actions       = [] # Add SNS topic ARN if needed
 
   dimensions = {
     ClusterName = module.ecs.cluster_name
